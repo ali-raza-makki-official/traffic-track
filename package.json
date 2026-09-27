@@ -1,0 +1,46 @@
+{
+  "name": "traffic-track",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:seed": "ts-node prisma/seed.ts",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "autoprefixer": "^10.4.20",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "geoip-lite": "^1.4.10",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.446.0",
+    "next": "14.2.15",
+    "postcss": "^8.4.47",
+    "prisma": "^5.20.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
+    "tailwind-merge": "^2.5.2",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.2",
+    "ua-parser-js": "^1.0.38"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/geoip-lite": "^1.4.4",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^20.16.10",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.10",
+    "@types/react-dom": "^18.3.0",
+    "@types/ua-parser-js": "^0.7.39",
+    "ts-node": "^10.9.2"
+  }
+}

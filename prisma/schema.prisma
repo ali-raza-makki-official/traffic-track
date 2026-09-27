@@ -1,0 +1,197 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                        String                 @id @default(cuid())
+  name                      String
+  email                     String                 @unique
+  passwordHash              String
+  role                      String                 @default("EMPLOYEE") // SUPER_ADMIN, ADMIN, EMPLOYEE
+  status                    String                 @default("ACTIVE")   // ACTIVE, SUSPENDED, DISABLED
+  trafficPercentageOverride Float?                 // Custom override %, null = use global
+  dailyTarget               Int?                   // e.g. 500
+  monthlyTarget             Int?                   // e.g. 15000
+  internalNotes             String?                @db.Text // Admin private notes
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+  lastLoginAt               DateTime?
+
+  links                     Link[]
+  trafficEvents             TrafficEvent[]
+  dailyStats                DailyTrafficStat[]
+  auditLogs                 AuditLog[]             @relation("AdminAudit")
+  adjustmentsMade           TrafficAdjustment[]    @relation("AdminAdjustments")
+  adjustmentsReceived       TrafficAdjustment[]    @relation("UserAdjustments")
+  notifications             Notification[]
+  mediaImages               MediaImage[]
+}
+
+model Link {
+  id                 String             @id @default(cuid())
+  userId             String
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shortCode          String             @unique
+  destinationUrl     String             @db.Text
+  previewTitle       String?
+  previewDescription String?            @db.Text
+  previewImage       String?            @db.Text
+  tags               String?            // Comma-separated tags
+  internalNotes      String?            @db.Text
+  status             String             @default("ACTIVE") // ACTIVE, PAUSED, EXPIRED, DISABLED
+  healthStatus       String             @default("HEALTHY") // HEALTHY, WARNING, BROKEN
+  isPinned           Boolean            @default(false)
+  expiresAt          DateTime?
+  fallbackUrl        String?            @db.Text
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  trafficEvents      TrafficEvent[]
+  dailyStats         DailyTrafficStat[]
+
+  @@index([userId])
+  @@index([shortCode])
+}
+
+model TrafficEvent {
+  id             String    @id @default(cuid())
+  linkId         String
+  link           Link      @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  timestampUtc   DateTime  @default(now())
+  ipAddress      String?
+  ipHash         String
+  countryCode    String?
+  countryName    String?
+  region         String?
+  city           String?
+  timezone       String?
+  referrer       String?   @db.Text
+  source         String?   // Facebook, Instagram, Google, Direct, WhatsApp, QR, etc.
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  userAgent      String?   @db.Text
+  browser        String?   // Facebook In-App, Chrome, Safari, etc.
+  browserVersion String?
+  os             String?   // Android, iOS, Windows, macOS, Linux
+  osVersion      String?
+  deviceType     String?   // Mobile, Desktop, Tablet, Other
+  isUnique       Boolean   @default(false)
+  isDuplicate    Boolean   @default(false)
+  isBot          Boolean   @default(false)
+  isValid        Boolean   @default(true)
+  isTest         Boolean   @default(false)
+  invalidReason  String?   @db.Text
+  createdAt      DateTime  @default(now())
+
+  @@index([userId])
+  @@index([linkId])
+  @@index([timestampUtc])
+  @@index([countryCode])
+  @@index([city])
+  @@index([source])
+  @@index([isValid])
+  @@index([ipHash])
+}
+
+model DailyTrafficStat {
+  id                String   @id @default(cuid())
+  date              String   // YYYY-MM-DD
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkId            String
+  link              Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  rawHits           Int      @default(0)
+  validHits         Int      @default(0)
+  invalidHits       Int      @default(0)
+  creditedHits      Int      @default(0)
+  appliedPercentage Float    @default(50.0)
+
+  @@unique([date, userId, linkId])
+  @@index([date])
+  @@index([userId])
+  @@index([linkId])
+}
+
+model TrafficAdjustment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("UserAdjustments", fields: [userId], references: [id], onDelete: Cascade)
+  adminId     String
+  admin       User     @relation("AdminAdjustments", fields: [adminId], references: [id], onDelete: Cascade)
+  amount      Int      // e.g. +200 or -50
+  reason      String   @db.Text // Mandatory explanation
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  message     String    @db.Text
+  priority    String    @default("NORMAL") // NORMAL, URGENT
+  targetRole  String    @default("EMPLOYEE")
+  isActive    Boolean   @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String   @db.Text
+  type      String   // TARGET, SECURITY, LINK
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Setting {
+  id           String   @id @default(cuid())
+  settingKey   String   @unique
+  settingValue String   @db.Text
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  adminUserId   String
+  adminUser     User     @relation("AdminAudit", fields: [adminUserId], references: [id], onDelete: Cascade)
+  action        String
+  targetType    String
+  targetId      String?
+  previousValue String?  @db.Text
+  newValue      String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  @@index([adminUserId])
+  @@index([createdAt])
+}
+
+model MediaImage {
+  id           String   @id @default(cuid())
+  url          String   @db.Text
+  filename     String
+  originalName String?
+  mimeType     String?
+  size         Int?
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
