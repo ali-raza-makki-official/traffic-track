@@ -24,3 +24,6 @@ prisma/dev.db-journal
 # OS
 .DS_Store
 Thumbs.db
+
+# Scratch temporary testing scripts
+scratch/

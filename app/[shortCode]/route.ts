@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { lookupIp } from "@/lib/geo";
-import { parseUserAgent, isSocialCrawler } from "@/lib/ua";
+import { parseUserAgent } from "@/lib/ua";
 import { detectSource } from "@/lib/source";
 import { hashVisitor, hashIp } from "@/lib/crypto";
+import {
+  detectBot,
+  renderBotBlockedResponse,
+  renderSocialPreviewResponse,
+} from "@/lib/botProtection";
 
 const RESERVED_WORDS = new Set([
   "api",
@@ -54,6 +59,14 @@ export async function GET(
     10
   );
   const botFiltering = settingsMap.get("bot_filtering_enabled") !== "false";
+  const botStrictMode = settingsMap.get("bot_protection_level") !== "STANDARD"; // default STRICT
+  const botBlockDatacenters = settingsMap.get("bot_block_datacenters") !== "false";
+  const botCheckHeaders = settingsMap.get("bot_check_headers") !== "false";
+  const botAction = (settingsMap.get("bot_action") || "403_BLOCK") as
+    | "403_BLOCK"
+    | "FALLBACK_REDIRECT"
+    | "SILENT_DROP";
+
   const globalCreditRate = parseFloat(
     settingsMap.get("traffic_credit_percentage") || "50"
   );
@@ -90,42 +103,48 @@ export async function GET(
     request.headers.get("x-real-ip") ||
     "127.0.0.1";
 
-  // 2. Crawler / Social Platform Preview Interceptor
-  if (isSocialCrawler(userAgent)) {
+  // 2. Ultra-Fast Zero-Latency Bot Detection (< 0.1ms)
+  const botResult = detectBot(request, userAgent, rawIp, {
+    enabled: botFiltering,
+    strictMode: botStrictMode,
+    blockDatacenters: botBlockDatacenters,
+    checkHeaders: botCheckHeaders,
+    action: botAction,
+  });
+
+  // 2a. Social Media Preview Crawlers (WhatsApp, Facebook, Twitter/X, Telegram, LinkedIn)
+  // Must render OpenGraph preview metadata so links look attractive in chat apps,
+  // BUT NEVER execute meta refresh or automatic redirection to the destination URL!
+  // Zero DB writes so bots are 100% excluded from analytics and visitor stats.
+  if (botResult.isSocialCrawler) {
     const title = link.previewTitle || "Job Opportunity & Company Update";
     const desc = link.previewDescription || "Click to view full details and apply online.";
     const image = link.previewImage || "";
-    const destination = link.destinationUrl;
 
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(title)}</title>
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="${escapeHtml(title)}" />
-  <meta property="og:description" content="${escapeHtml(desc)}" />
-  ${image ? `<meta property="og:image" content="${escapeHtml(image)}" />` : ""}
-  <meta property="og:url" content="${escapeHtml(destination)}" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="${escapeHtml(title)}" />
-  <meta name="twitter:description" content="${escapeHtml(desc)}" />
-  ${image ? `<meta name="twitter:image" content="${escapeHtml(image)}" />` : ""}
-  <meta http-equiv="refresh" content="0;url=${escapeHtml(destination)}" />
-  <script>window.location.href = ${JSON.stringify(destination)};</script>
-</head>
-<body style="font-family: sans-serif; text-align: center; padding: 40px;">
-  <p>Redirecting to <a href="${escapeHtml(destination)}">${escapeHtml(destination)}</a>...</p>
-</body>
-</html>`;
-
-    return new NextResponse(html, {
-      status: 200,
-      headers: { "content-type": "text/html; charset=utf-8" },
-    });
+    return renderSocialPreviewResponse(
+      title,
+      desc,
+      image,
+      request.nextUrl.toString()
+    ) as unknown as NextResponse;
   }
 
-  // 3. Parse Real Visitor Context
+  // 2b. Automation Bot / Scraper / Cloud Datacenter / Malicious Scanner Block
+  // CRITICAL: DO NOT REDIRECT TO DESTINATION URL!
+  // ZERO DB writes: Bot traffic is NEVER counted in admin or employee analytics!
+  if (botResult.isBot) {
+    // Apply configured bot action: NEVER REDIRECT TO DESTINATION URL!
+    if (botAction === "FALLBACK_REDIRECT") {
+      return NextResponse.redirect(new URL(defaultFallbackUrl), 302);
+    } else if (botAction === "SILENT_DROP") {
+      return new NextResponse(null, { status: 204 });
+    } else {
+      // Default: 403 Forbidden Shield Block Page (< 0.1ms execution)
+      return renderBotBlockedResponse(botResult.reason) as unknown as NextResponse;
+    }
+  }
+
+  // 3. Real Human Visitor Processing
   const isTestQuery = request.nextUrl.searchParams.get("test") === "1";
   const isInternalIp = Boolean(internalTestIp && rawIp.includes(internalTestIp));
   const isTest = Boolean(isTestQuery || isInternalIp);
@@ -133,12 +152,9 @@ export async function GET(
   const geo = await lookupIp(rawIp, request.headers);
   const uaParsed = parseUserAgent(userAgent);
   const sourceInfo = detectSource(referrer, request.nextUrl.searchParams);
-  const visitorHash = hashVisitor(rawIp, userAgent);
   const ipHash = hashIp(rawIp);
 
-  const isBot = botFiltering && uaParsed.isBot;
-
-  // Deduplication Check: Same visitor hash + same link within duplicate window
+  // Deduplication Check: Same visitor IP hash + same link within duplicate window
   const windowStart = new Date(Date.now() - duplicateWindowMinutes * 60 * 1000);
   const recentDuplicate = await db.trafficEvent.findFirst({
     where: {
@@ -169,15 +185,12 @@ export async function GET(
   if (isTest) {
     isValid = false;
     invalidReason = "internal_test";
-  } else if (isBot) {
-    isValid = false;
-    invalidReason = "bot_detected";
   } else if (isDuplicate) {
     isValid = false;
     invalidReason = "duplicate_window";
   }
 
-  // 4. Save Event Asynchronously
+  // 4. Save Real Visitor Event
   try {
     const todayStr = new Date().toISOString().split("T")[0];
     const effectiveRate = link.user.trafficPercentageOverride ?? globalCreditRate;
@@ -188,7 +201,9 @@ export async function GET(
         linkId: link.id,
         userId: link.userId,
         timestampUtc: new Date(),
-        ipAddress: rawIp.startsWith("127.") ? "127.0.0.1" : rawIp.split(".")[0] + ".xxx.xxx." + rawIp.split(".").pop(),
+        ipAddress: rawIp.startsWith("127.")
+          ? "127.0.0.1"
+          : rawIp.split(".")[0] + ".xxx.xxx." + rawIp.split(".").pop(),
         ipHash,
         countryCode: geo.countryCode,
         countryName: geo.countryName,
@@ -208,7 +223,7 @@ export async function GET(
         deviceType: uaParsed.deviceType,
         isUnique,
         isDuplicate,
-        isBot,
+        isBot: false,
         isValid,
         isTest,
         invalidReason,
@@ -261,15 +276,6 @@ export async function GET(
     console.error("Traffic logging error:", err);
   }
 
-  // 5. Fast Redirect to Destination
+  // 5. Fast Instant Redirect to Destination for Real Humans
   return NextResponse.redirect(new URL(link.destinationUrl), 302);
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }

@@ -46,8 +46,8 @@ export default async function AdminDashboard() {
     dailyStatsAggregate,
     adjustmentsAggregate,
   ] = await Promise.all([
-    db.trafficEvent.count({ where: { isTest: false } }),
-    db.trafficEvent.count({ where: { isTest: false, isValid: true } }),
+    db.trafficEvent.count({ where: { isTest: false, isBot: false } }),
+    db.trafficEvent.count({ where: { isTest: false, isBot: false, isValid: true } }),
     db.dailyTrafficStat.aggregate({
       where: { date: todayStr },
       _sum: { rawHits: true, validHits: true, creditedHits: true },

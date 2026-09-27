@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
 
   const whereClause: any = {
     isTest: false,
+    isBot: false,
     timestampUtc: { gte: thirtyMinAgo },
   };
 

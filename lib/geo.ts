@@ -92,7 +92,7 @@ export async function lookupIp(
   // 4. Query fast IP API (handles both IPv4 and IPv6) with 1.5s timeout
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const timeoutId = setTimeout(() => controller.abort(), 400);
 
     const res = await fetch(
       `http://ip-api.com/json/${encodeURIComponent(cleanIp)}?fields=status,country,countryCode,regionName,city,timezone`,

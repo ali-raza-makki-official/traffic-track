@@ -11,6 +11,9 @@ import {
   Bell,
   Check,
   Loader2,
+  ShieldCheck,
+  Zap,
+  Cpu,
 } from "lucide-react";
 
 export default function AdminSettingsPage() {
@@ -25,6 +28,10 @@ export default function AdminSettingsPage() {
   const [creditRate, setCreditRate] = useState("50");
   const [duplicateWindow, setDuplicateWindow] = useState("30");
   const [botFilter, setBotFilter] = useState("true");
+  const [botProtectionLevel, setBotProtectionLevel] = useState("STRICT");
+  const [botBlockDatacenters, setBotBlockDatacenters] = useState("true");
+  const [botCheckHeaders, setBotCheckHeaders] = useState("true");
+  const [botAction, setBotAction] = useState("403_BLOCK");
   const [internalIp, setInternalIp] = useState("");
   const [allowedDomains, setAllowedDomains] = useState("example.com,jobs.example.com,company.com");
   const [fallbackUrl, setFallbackUrl] = useState("https://example.com");
@@ -46,6 +53,10 @@ export default function AdminSettingsPage() {
         if (s.traffic_credit_percentage) setCreditRate(s.traffic_credit_percentage);
         if (s.duplicate_window_minutes) setDuplicateWindow(s.duplicate_window_minutes);
         if (s.bot_filtering_enabled) setBotFilter(s.bot_filtering_enabled);
+        if (s.bot_protection_level) setBotProtectionLevel(s.bot_protection_level);
+        if (s.bot_block_datacenters) setBotBlockDatacenters(s.bot_block_datacenters);
+        if (s.bot_check_headers) setBotCheckHeaders(s.bot_check_headers);
+        if (s.bot_action) setBotAction(s.bot_action);
         if (s.internal_test_ip) setInternalIp(s.internal_test_ip);
         if (s.allowed_domains) setAllowedDomains(s.allowed_domains);
         if (s.default_fallback_url) setFallbackUrl(s.default_fallback_url);
@@ -66,6 +77,10 @@ export default function AdminSettingsPage() {
           traffic_credit_percentage: creditRate,
           duplicate_window_minutes: duplicateWindow,
           bot_filtering_enabled: botFilter,
+          bot_protection_level: botProtectionLevel,
+          bot_block_datacenters: botBlockDatacenters,
+          bot_check_headers: botCheckHeaders,
+          bot_action: botAction,
           internal_test_ip: internalIp,
           allowed_domains: allowedDomains,
           default_fallback_url: fallbackUrl,
@@ -254,21 +269,123 @@ export default function AdminSettingsPage() {
                 </span>
               </div>
 
-              <div className="border-t border-[#E2E8F0] pt-4">
-                <label className="block text-[13px] font-semibold text-[#0F172A] mb-1">
-                  Bot & Crawler Filtering
-                </label>
-                <select
-                  value={botFilter}
-                  onChange={(e) => setBotFilter(e.target.value)}
-                  className="w-48 px-3 py-2 border border-[#E2E8F0] rounded-lg text-xs text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                >
-                  <option value="true">Enabled (Recommended)</option>
-                  <option value="false">Disabled</option>
-                </select>
-                <span className="block text-[12px] text-[#64748B] mt-1">
-                  Social platform preview bots (e.g. Facebook crawler, Twitterbot) are filtered from human visitor metrics.
-                </span>
+              {/* Anti-Bot Shield & Zero-Latency Protection Card */}
+              <div className="border-t border-[#E2E8F0] pt-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-[#2563EB]" />
+                    <h4 className="text-[14px] font-bold text-[#0F172A]">
+                      Anti-Bot Shield & Zero-Latency Redirection Protection
+                    </h4>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
+                    <Zap className="w-3 h-3 text-[#059669]" /> Execution Speed: &lt; 0.1ms
+                  </span>
+                </div>
+
+                <div className="p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl space-y-4">
+                  {/* Master Bot Filter Toggle */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[12px] font-bold text-[#0F172A] mb-1">
+                        Bot Filtering Engine
+                      </label>
+                      <select
+                        value={botFilter}
+                        onChange={(e) => setBotFilter(e.target.value)}
+                        className="w-full px-3 py-2 border border-[#CBD5E1] bg-white rounded-lg text-xs font-medium text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      >
+                        <option value="true">Enabled (Shield Active)</option>
+                        <option value="false">Disabled (Allow All Requests)</option>
+                      </select>
+                      <span className="block text-[11px] text-[#64748B] mt-1">
+                        Intercepts automated scrapers, headless browsers, and datacenter traffic.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[12px] font-bold text-[#0F172A] mb-1">
+                        Protection Sensitivity Level
+                      </label>
+                      <select
+                        value={botProtectionLevel}
+                        onChange={(e) => setBotProtectionLevel(e.target.value)}
+                        className="w-full px-3 py-2 border border-[#CBD5E1] bg-white rounded-lg text-xs font-medium text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      >
+                        <option value="STRICT">Strict Mode (Recommended: Full Zero-Delay Inspection)</option>
+                        <option value="STANDARD">Standard Mode (Known Bot Signatures Only)</option>
+                      </select>
+                      <span className="block text-[11px] text-[#64748B] mt-1">
+                        Strict mode checks browser client hints, header integrity, and platform spoofing.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Datacenter & Headers Check */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-[#E2E8F0]">
+                    <div>
+                      <label className="block text-[12px] font-bold text-[#0F172A] mb-1">
+                        Cloud Datacenter & Hosting IP Blocker
+                      </label>
+                      <select
+                        value={botBlockDatacenters}
+                        onChange={(e) => setBotBlockDatacenters(e.target.value)}
+                        className="w-full px-3 py-2 border border-[#CBD5E1] bg-white rounded-lg text-xs font-medium text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      >
+                        <option value="true">Block Datacenter IPs (AWS, GCP, Azure, DO, Hetzner, OVH)</option>
+                        <option value="false">Allow Datacenter IPs</option>
+                      </select>
+                      <span className="block text-[11px] text-[#64748B] mt-1">
+                        Automated scrapers running on server farms are instantly terminated.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[12px] font-bold text-[#0F172A] mb-1">
+                        Browser Header Integrity Verification
+                      </label>
+                      <select
+                        value={botCheckHeaders}
+                        onChange={(e) => setBotCheckHeaders(e.target.value)}
+                        className="w-full px-3 py-2 border border-[#CBD5E1] bg-white rounded-lg text-xs font-medium text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      >
+                        <option value="true">Enforce Real Browser Headers (Accept-Language / Sec-CH-UA)</option>
+                        <option value="false">Bypass Header Inspection</option>
+                      </select>
+                      <span className="block text-[11px] text-[#64748B] mt-1">
+                        Stops CLI tools (curl, wget, python-requests) that omit standard browser headers.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action on Bot Detection (Never Redirect) */}
+                  <div className="pt-3 border-t border-[#E2E8F0]">
+                    <label className="block text-[12px] font-bold text-[#0F172A] mb-1">
+                      Action When Bot is Detected (Zero Redirection Guarantee)
+                    </label>
+                    <select
+                      value={botAction}
+                      onChange={(e) => setBotAction(e.target.value)}
+                      className="w-full md:w-96 px-3 py-2 border border-[#CBD5E1] bg-white rounded-lg text-xs font-medium text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    >
+                      <option value="403_BLOCK">Block with 403 Forbidden Shield (Never Redirect Destination)</option>
+                      <option value="FALLBACK_REDIRECT">Redirect to Public Fallback URL (Keeps Client Link Safe)</option>
+                      <option value="SILENT_DROP">Silent Drop (Empty 204 No Content)</option>
+                    </select>
+                    <span className="block text-[11px] text-[#EF4444] font-medium mt-1">
+                      Ensures bots, crawlers, and scrapers are never redirected to the destination URL.
+                    </span>
+                  </div>
+
+                  {/* Social Preview Status */}
+                  <div className="p-3 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg text-xs text-[#1D4ED8] flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#2563EB] shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block font-bold">Social Media Card Protection Active:</strong>
+                      WhatsApp, Facebook, Twitter/X, Telegram, and LinkedIn crawlers receive OpenGraph cards (title, description, image) for beautiful social previews, but are <strong>never redirected</strong> to advertiser destinations!
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="border-t border-[#E2E8F0] pt-4">

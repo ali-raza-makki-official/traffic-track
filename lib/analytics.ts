@@ -81,6 +81,7 @@ export async function getAggregatedAnalytics(filter: AnalyticsFilter, isEmployee
       lte: end,
     },
     isTest: false,
+    isBot: false,
   };
 
   if (filter.userId) where.userId = filter.userId;
