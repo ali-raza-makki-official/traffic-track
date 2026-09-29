@@ -132,8 +132,14 @@ export default function AnalyticsTabs({
             <StatCard
               title={isEmployeeView ? "Credited Clicks" : "Total Credited Traffic"}
               value={kpis.creditedClicks || 0}
-              subtitle={`Calculated at ${kpis.effectiveRate}% effective credit rate`}
-              badge={`${kpis.effectiveRate}% Rate`}
+              subtitle={
+                isEmployeeView
+                  ? "Attributed platform traffic"
+                  : kpis.effectiveRate
+                  ? `Calculated at ${kpis.effectiveRate}% effective credit rate`
+                  : "Platform credited traffic"
+              }
+              badge={isEmployeeView ? undefined : kpis.effectiveRate ? `${kpis.effectiveRate}% Rate` : undefined}
               badgeColor="green"
               icon={ShieldCheck}
             />

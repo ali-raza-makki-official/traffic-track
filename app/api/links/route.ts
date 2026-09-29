@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
       expiresAt: link.expiresAt,
       fallbackUrl: link.fallbackUrl,
       createdAt: link.createdAt,
-      user: link.user,
+      user: isAdmin ? link.user : { id: link.user.id, name: link.user.name, email: link.user.email },
       rawHits: isAdmin ? linkStats.rawHits : undefined,
       validHits: isAdmin ? linkStats.validHits : undefined,
       creditedHits: linkStats.creditedHits,

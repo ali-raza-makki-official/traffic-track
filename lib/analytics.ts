@@ -292,7 +292,7 @@ export async function getAggregatedAnalytics(filter: AnalyticsFilter, isEmployee
       uniqueVisitors: isEmployeeView ? undefined : uniqueVisitors,
       repeatVisits: isEmployeeView ? undefined : Math.max(0, validVisits - uniqueVisitors),
       creditedClicks,
-      effectiveRate: defaultRate,
+      effectiveRate: isEmployeeView ? undefined : defaultRate,
     },
     dailyTrends: dailyTrends.map((d) => ({
       date: d.date,

@@ -12,8 +12,12 @@ import {
   TrendingUp,
   AlertCircle,
   Copy,
+  Target,
 } from "lucide-react";
 import DashboardClient from "./DashboardClient";
+
+import { getPakistanTodayRange } from "@/lib/timezone";
+import { formatProgressPercent } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +34,10 @@ export default async function EmployeeDashboard() {
     take: 1,
   });
 
-  // Calculate Employee Traffic for Today, Yesterday, This Month, and Total
-  const todayStr = new Date().toISOString().split("T")[0];
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split("T")[0];
+  // Calculate Employee Traffic for Today (12:00 AM to 11:59 PM PKT), Yesterday, and Month
+  const { todayDateStr, yesterdayDateStr } = getPakistanTodayRange();
+  const todayStr = todayDateStr;
+  const yesterdayStr = yesterdayDateStr;
 
   const now = new Date();
   const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -81,10 +84,14 @@ export default async function EmployeeDashboard() {
   const yesterdayCredited = yesterdayStats._sum.creditedHits || 0;
   const monthCredited = monthStats._sum.creditedHits || 0;
 
-  // Monthly target progress
+  // Targets & Progress calculations
   const monthlyTarget = user.monthlyTarget || 10000;
+  const dailyTarget = user.dailyTarget || Math.round(monthlyTarget / 30) || 500;
   const validMonthTraffic = monthStats._sum.validHits || 0;
-  const targetProgress = Math.min(100, Math.round((validMonthTraffic / monthlyTarget) * 100));
+  const validTodayTraffic = todayStats._sum.validHits || 0;
+
+  const monthProgress = formatProgressPercent(validMonthTraffic, monthlyTarget);
+  const todayProgress = formatProgressPercent(validTodayTraffic, dailyTarget);
 
   return (
     <AppShell
@@ -112,46 +119,61 @@ export default async function EmployeeDashboard() {
           </div>
         )}
 
-        {/* Top Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard
-            title="Credited Clicks"
-            value={totalCredited}
-            subtitle="Your total credited visits"
-            badge="Total"
-            badgeColor="green"
-          />
-          <StatCard
-            title="Today"
-            value={todayCredited}
-            subtitle="Visits recorded today"
-            trend={
-              yesterdayCredited > 0
-                ? {
-                    value: `${todayCredited >= yesterdayCredited ? "+" : ""}${Math.round(
-                      ((todayCredited - yesterdayCredited) / yesterdayCredited) * 100
-                    )}%`,
-                    isPositive: todayCredited >= yesterdayCredited,
-                  }
-                : undefined
-            }
-          />
-          <StatCard
-            title="Yesterday"
-            value={yesterdayCredited}
-            subtitle="Previous day visits"
-          />
-          <StatCard
-            title="This Month"
-            value={monthCredited}
-            subtitle="Current calendar month"
-          />
-          <StatCard
-            title="Total Links"
-            value={totalLinks}
-            subtitle="Active tracking links"
-            icon={LinkIcon}
-          />
+        {/* Top Metric Cards: Focus on Today (12:00 AM to 11:59 PM PKT) */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-pulse"></span>
+            <span className="text-[13px] font-bold text-[#0F172A]">
+              Today's Performance
+            </span>
+            <span className="text-[12px] text-[#64748B]">
+              (12:00 AM – 11:59 PM Pakistan Standard Time)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <StatCard
+              title="Today's Credited Clicks"
+              value={todayCredited}
+              subtitle="12:00 AM – 11:59 PM PKT"
+              badge="Today"
+              badgeColor="green"
+              trend={
+                yesterdayCredited > 0
+                  ? {
+                      value: `${todayCredited >= yesterdayCredited ? "+" : ""}${Math.round(
+                        ((todayCredited - yesterdayCredited) / yesterdayCredited) * 100
+                      )}%`,
+                      isPositive: todayCredited >= yesterdayCredited,
+                    }
+                  : undefined
+              }
+            />
+            <StatCard
+              title="Yesterday"
+              value={yesterdayCredited}
+              subtitle="Previous day visits (PKT)"
+              badge="Yesterday"
+            />
+            <StatCard
+              title="Active Links"
+              value={totalLinks}
+              subtitle="Your tracking links"
+              icon={LinkIcon}
+            />
+            <StatCard
+              title="This Month"
+              value={monthCredited}
+              subtitle="Current calendar month"
+            />
+            <StatCard
+              title="All-Time Credited"
+              value={totalCredited}
+              subtitle="Lifetime verified traffic"
+              badge="Total"
+              badgeColor="blue"
+            />
+          </div>
         </div>
 
         {/* Target Progress Bar & Live Counter Row */}
@@ -160,27 +182,61 @@ export default async function EmployeeDashboard() {
           <div className="lg:col-span-2 bg-[#FFFFFF] border border-[#E2E8F0] rounded-xl p-5 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[14px] font-bold text-[#0F172A]">
-                  Monthly Traffic Target
+                <span className="text-[14px] font-bold text-[#0F172A] flex items-center gap-2">
+                  <Target className="w-4 h-4 text-[#2563EB]" />
+                  Traffic Target Progress
                 </span>
-                <span className="text-[12px] font-semibold text-[#2563EB] bg-[#EFF6FF] px-2 py-0.5 rounded-full">
-                  {targetProgress}% Achieved
+                <span className="text-[12px] font-semibold text-[#2563EB] bg-[#EFF6FF] px-2.5 py-0.5 rounded-full border border-[#DBEAFE]">
+                  {monthProgress.display} Monthly Achieved
                 </span>
               </div>
               <p className="text-[12px] text-[#64748B] mb-4">
-                Valid traffic generated this month vs your assigned goal
+                Real-time tracking of your daily and monthly traffic milestones
               </p>
 
-              <div className="w-full bg-[#F1F5F9] h-3 rounded-full overflow-hidden mb-2">
-                <div
-                  className="bg-[#2563EB] h-3 rounded-full transition-all duration-500"
-                  style={{ width: `${targetProgress}%` }}
-                />
+              {/* Today's Daily Target Progress */}
+              <div className="mb-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3.5">
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="font-semibold text-[#0F172A] flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+                    Today's Target (12:00 AM – 11:59 PM PKT)
+                  </span>
+                  <span className="font-bold text-[#10B981] bg-[#ECFDF5] px-2 py-0.5 rounded-full border border-[#A7F3D0]">
+                    {todayProgress.display} Achieved
+                  </span>
+                </div>
+                <div className="w-full bg-[#E2E8F0] h-2.5 rounded-full overflow-hidden mb-1.5">
+                  <div
+                    className="bg-gradient-to-r from-[#10B981] to-[#059669] h-2.5 rounded-full transition-all duration-500 shadow-xs"
+                    style={{ width: `${todayProgress.barWidth}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] font-medium text-[#64748B]">
+                  <span>{validTodayTraffic.toLocaleString()} visits today</span>
+                  <span>Goal: {dailyTarget.toLocaleString()}/day</span>
+                </div>
               </div>
 
-              <div className="flex justify-between text-xs font-semibold text-[#64748B]">
-                <span>{validMonthTraffic.toLocaleString()} valid visits</span>
-                <span>Goal: {monthlyTarget.toLocaleString()}</span>
+              {/* Monthly Target Progress */}
+              <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3.5">
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="font-semibold text-[#0F172A]">
+                    Monthly Goal Progress
+                  </span>
+                  <span className="font-bold text-[#2563EB] bg-[#EFF6FF] px-2 py-0.5 rounded-full border border-[#BFDBFE]">
+                    {monthProgress.display} Achieved
+                  </span>
+                </div>
+                <div className="w-full bg-[#E2E8F0] h-2.5 rounded-full overflow-hidden mb-1.5">
+                  <div
+                    className="bg-gradient-to-r from-[#2563EB] to-[#4F46E5] h-2.5 rounded-full transition-all duration-500 shadow-xs"
+                    style={{ width: `${monthProgress.barWidth}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] font-medium text-[#64748B]">
+                  <span>{validMonthTraffic.toLocaleString()} visits this month</span>
+                  <span>Goal: {monthlyTarget.toLocaleString()}</span>
+                </div>
               </div>
             </div>
 

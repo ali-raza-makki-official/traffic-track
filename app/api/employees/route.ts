@@ -61,7 +61,15 @@ export async function GET() {
 
     // Target calculation: e.g. monthlyTarget
     const target = emp.monthlyTarget || 10000;
-    const targetProgress = Math.min(100, Math.round((s.validHits / target) * 100));
+    const rawPercent = target > 0 ? (s.validHits / target) * 100 : 0;
+    const targetProgress =
+      rawPercent === 0
+        ? 0
+        : rawPercent < 0.1
+        ? Number(rawPercent.toFixed(2))
+        : rawPercent < 10
+        ? Number(rawPercent.toFixed(1))
+        : Math.min(100, Math.round(rawPercent));
 
     return {
       id: emp.id,

@@ -7,5 +7,11 @@ export async function GET() {
     return NextResponse.json({ success: false, user: null }, { status: 401 });
   }
 
-  return NextResponse.json({ success: true, user });
+  const isAdmin = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
+  const sanitizedUser = {
+    ...user,
+    trafficPercentageOverride: isAdmin ? user.trafficPercentageOverride : undefined,
+  };
+
+  return NextResponse.json({ success: true, user: sanitizedUser });
 }

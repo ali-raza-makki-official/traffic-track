@@ -9,6 +9,7 @@ import {
   renderBotBlockedResponse,
   renderSocialPreviewResponse,
 } from "@/lib/botProtection";
+import { getPakistanTodayRange } from "@/lib/timezone";
 
 const RESERVED_WORDS = new Set([
   "api",
@@ -192,7 +193,8 @@ export async function GET(
 
   // 4. Save Real Visitor Event
   try {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const { todayDateStr } = getPakistanTodayRange();
+    const todayStr = todayDateStr;
     const effectiveRate = link.user.trafficPercentageOverride ?? globalCreditRate;
 
     // Create event

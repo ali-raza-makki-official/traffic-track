@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import AdminDashboardClient from "./AdminDashboardClient";
 import { formatNumber } from "@/lib/utils";
+import { getPakistanTodayRange } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -33,12 +34,12 @@ export default async function AdminDashboard() {
   });
   const defaultRate = globalSetting ? parseFloat(globalSetting.settingValue) : 50.0;
 
-  // 2. Fetch Organization Metrics
-  const todayStr = new Date().toISOString().split("T")[0];
+  // 2. Fetch Organization Metrics for Today (12:00 AM to 11:59 PM PKT)
+  const { todayDateStr, startOfDayPkt, endOfDayPkt } = getPakistanTodayRange();
 
   const [
-    allEventsCount,
-    validEventsCount,
+    todayEventsCount,
+    todayValidCount,
     todayStats,
     activeEmployeesCount,
     totalLinksCount,
@@ -46,10 +47,23 @@ export default async function AdminDashboard() {
     dailyStatsAggregate,
     adjustmentsAggregate,
   ] = await Promise.all([
-    db.trafficEvent.count({ where: { isTest: false, isBot: false } }),
-    db.trafficEvent.count({ where: { isTest: false, isBot: false, isValid: true } }),
+    db.trafficEvent.count({
+      where: {
+        timestampUtc: { gte: startOfDayPkt, lte: endOfDayPkt },
+        isTest: false,
+        isBot: false,
+      },
+    }),
+    db.trafficEvent.count({
+      where: {
+        timestampUtc: { gte: startOfDayPkt, lte: endOfDayPkt },
+        isTest: false,
+        isBot: false,
+        isValid: true,
+      },
+    }),
     db.dailyTrafficStat.aggregate({
-      where: { date: todayStr },
+      where: { date: todayDateStr },
       _sum: { rawHits: true, validHits: true, creditedHits: true },
     }),
     db.user.count({
@@ -66,6 +80,7 @@ export default async function AdminDashboard() {
     db.dailyTrafficStat.groupBy({
       by: ["userId"],
       _sum: { validHits: true, creditedHits: true, rawHits: true },
+      where: { date: todayDateStr },
     }),
     db.trafficAdjustment.groupBy({
       by: ["userId"],
@@ -88,16 +103,17 @@ export default async function AdminDashboard() {
     adjustmentsAggregate.map((a) => [a.userId, a._sum.amount || 0])
   );
 
-  let totalCreditedSum = 0;
+  const todayRawHits = Math.max(todayEventsCount, todayStats._sum.rawHits || 0);
+  const todayValidTraffic = Math.max(todayValidCount, todayStats._sum.validHits || 0);
+  const todayCreditedSum = todayStats._sum.creditedHits || 0;
+
   const employeePerformance = employees.map((emp) => {
     const s = statsMap.get(emp.id) || { raw: 0, valid: 0, credited: 0 };
-    const adj = adjustmentsMap.get(emp.id) || 0;
     const effectiveRate = emp.trafficPercentageOverride ?? defaultRate;
-    const finalCredited = Math.max(0, s.credited + adj);
-    totalCreditedSum += finalCredited;
+    const credited = s.credited;
 
-    const target = emp.monthlyTarget || 10000;
-    const achievement = Math.round((s.valid / target) * 100);
+    const dailyTarget = emp.dailyTarget || 500;
+    const achievement = dailyTarget > 0 ? Math.round((s.valid / dailyTarget) * 100) : 0;
 
     return {
       id: emp.id,
@@ -106,9 +122,9 @@ export default async function AdminDashboard() {
       status: emp.status,
       linksCount: emp._count.links,
       validTraffic: s.valid,
-      creditedTraffic: finalCredited,
+      creditedTraffic: credited,
       effectiveRate,
-      target,
+      target: dailyTarget,
       achievement,
     };
   });
@@ -127,43 +143,55 @@ export default async function AdminDashboard() {
       }}
     >
       <div className="space-y-6">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard
-            title="Total Raw Hits"
-            value={allEventsCount}
-            subtitle="All incoming requests"
-            badge="Raw"
-            badgeColor="blue"
-          />
-          <StatCard
-            title="Total Valid Traffic"
-            value={validEventsCount}
-            subtitle="Filtered human visits"
-            badge="Valid"
-            badgeColor="green"
-            icon={CheckCircle2}
-          />
-          <StatCard
-            title="Total Credited Traffic"
-            value={totalCreditedSum}
-            subtitle={`Calculated via credit rates`}
-            badge="Credited"
-            badgeColor="green"
-            icon={ShieldCheck}
-          />
-          <StatCard
-            title="Active Employees"
-            value={activeEmployeesCount}
-            subtitle="Team members generating"
-            icon={Users}
-          />
-          <StatCard
-            title="Active Tracking Links"
-            value={totalLinksCount}
-            subtitle="Total links in system"
-            icon={LinkIcon}
-          />
+        {/* Today's Pakistan Time Banner & KPI Cards */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-pulse"></span>
+            <span className="text-[13px] font-bold text-[#0F172A]">
+              Today's Live Platform Data
+            </span>
+            <span className="text-[12px] text-[#64748B]">
+              (12:00 AM – 11:59 PM Pakistan Standard Time)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <StatCard
+              title="Today's Raw Hits"
+              value={todayRawHits}
+              subtitle="All incoming hits today (PKT)"
+              badge="Today"
+              badgeColor="blue"
+            />
+            <StatCard
+              title="Today's Valid Traffic"
+              value={todayValidTraffic}
+              subtitle="Verified humans today"
+              badge="Valid"
+              badgeColor="green"
+              icon={CheckCircle2}
+            />
+            <StatCard
+              title="Today's Credited Traffic"
+              value={todayCreditedSum}
+              subtitle="Credited platform clicks today"
+              badge="Credited"
+              badgeColor="green"
+              icon={ShieldCheck}
+            />
+            <StatCard
+              title="Active Employees"
+              value={activeEmployeesCount}
+              subtitle="Total active team members"
+              icon={Users}
+            />
+            <StatCard
+              title="Active Tracking Links"
+              value={totalLinksCount}
+              subtitle="Total links in system"
+              icon={LinkIcon}
+            />
+          </div>
         </div>
 
         {/* Quick Operational Shortcuts */}
@@ -221,15 +249,15 @@ export default async function AdminDashboard() {
           </Link>
         </div>
 
-        {/* Employee Performance Table */}
+        {/* Employee Performance Table - Today's Live Leaderboard */}
         <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-xl p-5 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-[16px] font-bold text-[#0F172A]">
-                Employee Performance Overview
+              <h3 className="text-[16px] font-bold text-[#0F172A] flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#10B981]"></span> Today's Employee Performance
               </h3>
               <p className="text-[12px] text-[#64748B]">
-                Comparison between actual valid traffic generated and credited traffic
+                Live traffic recorded today from 12:00 AM to 11:59 PM (Pakistan Standard Time)
               </p>
             </div>
             <Link
@@ -246,10 +274,10 @@ export default async function AdminDashboard() {
                 <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B] font-semibold">
                   <th className="py-3 px-4">Team Member</th>
                   <th className="py-3 px-4 text-center">Links</th>
-                  <th className="py-3 px-4 text-right">Actual Valid</th>
-                  <th className="py-3 px-4 text-right">Credited Clicks</th>
-                  <th className="py-3 px-4 text-center">Effective Rate</th>
-                  <th className="py-3 px-4 text-center">Monthly Target</th>
+                  <th className="py-3 px-4 text-right">Today's Valid</th>
+                  <th className="py-3 px-4 text-right">Today's Credited</th>
+                  <th className="py-3 px-4 text-center">Credit Rate</th>
+                  <th className="py-3 px-4 text-center">Daily Target</th>
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
