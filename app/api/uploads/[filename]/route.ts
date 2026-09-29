@@ -19,7 +19,7 @@ export async function GET(
     else if (filename.endsWith(".webp")) contentType = "image/webp";
     else if (filename.endsWith(".gif")) contentType = "image/gif";
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       status: 200,
       headers: {
         "Content-Type": contentType,
