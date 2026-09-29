@@ -4,14 +4,15 @@ import { db } from "@/lib/db";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
   if (!user || (user.role !== "SUPER_ADMIN" && user.role !== "ADMIN")) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
   }
 
-  const employee = await db.user.findUnique({ where: { id: params.id } });
+  const { id } = await params;
+  const employee = await db.user.findUnique({ where: { id } });
   if (!employee) {
     return NextResponse.json({ success: false, message: "Employee not found" }, { status: 404 });
   }

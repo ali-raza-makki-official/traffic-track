@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
   if (!user) {
@@ -12,9 +12,10 @@ export async function GET(
   }
 
   const isAdmin = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
+  const { id } = await params;
 
   const link = await db.link.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       user: {
         select: { id: true, name: true, email: true, trafficPercentageOverride: true },
@@ -35,7 +36,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
   if (!user) {
@@ -43,8 +44,9 @@ export async function PATCH(
   }
 
   const isAdmin = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
+  const { id } = await params;
 
-  const existingLink = await db.link.findUnique({ where: { id: params.id } });
+  const existingLink = await db.link.findUnique({ where: { id } });
   if (!existingLink) {
     return NextResponse.json({ success: false, message: "Link not found" }, { status: 404 });
   }
@@ -84,7 +86,7 @@ export async function PATCH(
     }
 
     const updated = await db.link.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     });
 

@@ -29,9 +29,9 @@ const RESERVED_WORDS = new Set([
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { shortCode: string } }
+  { params }: { params: Promise<{ shortCode: string }> }
 ) {
-  const shortCode = params.shortCode;
+  const { shortCode } = await params;
 
   if (RESERVED_WORDS.has(shortCode.toLowerCase())) {
     return new NextResponse("Not Found", { status: 404 });

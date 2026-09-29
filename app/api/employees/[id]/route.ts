@@ -4,15 +4,16 @@ import { db } from "@/lib/db";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
   if (!user || (user.role !== "SUPER_ADMIN" && user.role !== "ADMIN")) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
   }
 
+  const { id } = await params;
   const employee = await db.user.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       links: {
         orderBy: { createdAt: "desc" },
@@ -66,14 +67,15 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
   if (!user || (user.role !== "SUPER_ADMIN" && user.role !== "ADMIN")) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
   }
 
-  const employee = await db.user.findUnique({ where: { id: params.id } });
+  const { id } = await params;
+  const employee = await db.user.findUnique({ where: { id } });
   if (!employee) {
     return NextResponse.json({ success: false, message: "Employee not found" }, { status: 404 });
   }
@@ -159,7 +161,7 @@ export async function PATCH(
     }
 
     const updated = await db.user.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     });
 

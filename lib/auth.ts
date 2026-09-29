@@ -34,7 +34,7 @@ export function verifyToken(token: string): SessionPayload | null {
 
 export async function setSessionCookie(payload: SessionPayload) {
   const token = signToken(payload);
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -45,12 +45,12 @@ export async function setSessionCookie(payload: SessionPayload) {
 }
 
 export async function clearSessionCookie() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
 }
 
 export async function getCurrentUser() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
 
