@@ -19,7 +19,6 @@ import {
   X,
 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastContext";
-import CreatedByBadge from "@/components/ui/CreatedByBadge";
 
 interface SidebarProps {
   userRole?: string;
@@ -179,8 +178,6 @@ export default function Sidebar({
           <LogOut className="w-4 h-4" />
           <span>Sign Out</span>
         </button>
-
-        <CreatedByBadge variant="sidebar" />
       </div>
     </div>
   );

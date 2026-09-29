@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Lock, Mail, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
 import { useToast } from "@/components/ui/ToastContext";
-import CreatedByBadge from "@/components/ui/CreatedByBadge";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -222,7 +221,6 @@ export default function LoginPage() {
 
         {/* Clean Production Footer */}
         <div className="mt-8 text-center text-xs text-[#94A3B8] flex flex-col items-center gap-2">
-          <CreatedByBadge variant="login" />
           <p>© 2026 TrafficTrack. All rights reserved.</p>
           <p className="text-[11px]">Authorized personnel only. Sessions are encrypted and monitored.</p>
         </div>

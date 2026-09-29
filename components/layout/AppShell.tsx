@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
-import CreatedByBadge from "@/components/ui/CreatedByBadge";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -59,7 +58,6 @@ export default function AppShell({
             <span>•</span>
             <span className="text-[#94A3B8]">High Precision Tracking System</span>
           </div>
-          <CreatedByBadge variant="footer" />
         </footer>
       </div>
     </div>
